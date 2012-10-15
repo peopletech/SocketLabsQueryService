@@ -1,0 +1,4 @@
+SocketLabsQueryService
+======================
+
+SocketLabsQueryService for MongoDB
