@@ -2,27 +2,23 @@ package loyal3.poc
 
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import scala.collection.mutable.HashMap
+import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.Map
+import scala.xml.NodeSeq
+import scala.xml.XML
+import org.joda.time.DateTime
+import com.loyal3.model.email.BouncedEmail
 import com.loyal3.model.email.SocketLabsApiCall
+import com.loyal3.util.logging.Logging
 import dispatch.Request.toHandlerVerbs
 import dispatch.Request.toRequestVerbs
-import scala.xml.XML
-import dispatch.url
-import dispatch.StatusCode
-import loyal3.poc.utils.HibernateUtil
 import dispatch.Http
-import com.loyal3.util.logging.Logging
-import scala.collection.mutable.HashMap
-import scala.xml.NodeSeq
-import scala.collection.mutable.ListBuffer
-import com.loyal3.model.email.BouncedEmail
-import org.joda.time.DateTime
-import _root_.com.loyal3.model.email._
-import org.hibernate.FlushMode
-//import com.loyal3.model.email.MongoEmailDAO
-
-
-
+import dispatch.StatusCode
+import dispatch.url
+import loyal3.poc.utils.HibernateUtil
+import com.loyal3.model.email.MongoEmail
+import com.loyal3.model.email.MongoEmailDAO
 
 
 
@@ -46,7 +42,7 @@ class SocketLabsQueryService extends Object with Logging{
     socketLabsApiCall
   }
 
-  private def performApiCall(method: String, windowParams: Map[String, String], socketLabsApiCall:SocketLabsApiCall) :SocketLabsApiCall ={
+  def performApiCall(method: String, windowParams: Map[String, String], socketLabsApiCall:SocketLabsApiCall) :SocketLabsApiCall ={
     var xml:String	= ""
     //var socketLabsApiCall = new SocketLabsApiCall
     val http = new Http
@@ -70,7 +66,7 @@ class SocketLabsQueryService extends Object with Logging{
     socketLabsApiCall
   }
 
-  private def constructRequest(method:String, windowParams: Map[String, String])=
+   def constructRequest(method:String, windowParams: Map[String, String])=
     make_auth_url_method(method).as(SocketLabsQueryService.SOCKET_LABS_API_USER,SocketLabsQueryService.SOCKET_LABS_API_KEY) <<? addQueryParams(windowParams)
 
   private def make_auth_url_method(method: String)=
@@ -85,7 +81,7 @@ class SocketLabsQueryService extends Object with Logging{
 
 
   // Creates database record for this call
-  private def createApiCall(methodName:String, windowParams: Map[String, String])={
+  def createApiCall(methodName:String, windowParams: Map[String, String])={
     val socketLabsApiCall = new SocketLabsApiCall
     try{
       socketLabsApiCall.setId(com.loyal3.util.IdFactory.generateId)
@@ -93,6 +89,7 @@ class SocketLabsQueryService extends Object with Logging{
       socketLabsApiCall.setEndDate(java.sql.Date.valueOf(windowParams.get("endDate").get))
       socketLabsApiCall.setIndexVal(Some(windowParams.get("index").get.toLong))
       socketLabsApiCall.setMethodName(methodName)
+      socketLabsApiCall.createdAt=new DateTime()
        val session = HibernateUtil.factory.openSession();
         val tx	=	session.beginTransaction();
         //session.setFlushMode(FlushMode.AUTO)
@@ -108,9 +105,10 @@ class SocketLabsQueryService extends Object with Logging{
     socketLabsApiCall
   }
 
-  private def updateAttributes(socketLabsApiCall: SocketLabsApiCall)={
+  def updateAttributes(socketLabsApiCall: SocketLabsApiCall)={
     try{
       println("update id = "+socketLabsApiCall.getId())
+      socketLabsApiCall.updatedAt=new DateTime()
     val session = HibernateUtil.factory.openSession();
     val tx	=	session.beginTransaction();
     //session.setFlushMode(FlushMode.AUTO)
@@ -126,13 +124,13 @@ class SocketLabsQueryService extends Object with Logging{
   }
 
 
-  private def processApiResponse(socketLabsApiCall:SocketLabsApiCall){
+  def processApiResponse(socketLabsApiCall:SocketLabsApiCall){
     debug("raw response : "+socketLabsApiCall.getRawResponse())
     //println("raw response : "+socketLabsApiCall.getRawResponse())
     if(socketLabsApiCall.getHttpStatus()==null)
       socketLabsApiCall.setCount(Some(0))
     updateAttributes(socketLabsApiCall);
-    if(!socketLabsApiCall.getRawResponse().isEmpty()){
+    if(socketLabsApiCall.getRawResponse()!=null){
 	    val responseXml: scala.xml.Elem	=	XML.loadString(socketLabsApiCall.getRawResponse())
 	    val api_count: Int	=	extractApiCount(responseXml)
 	    println("api_count = "+api_count)
@@ -163,15 +161,20 @@ class SocketLabsQueryService extends Object with Logging{
       val messageId	=	item \\ "MessageId"
       bouncedEmail.setId(messageId.text)
       
-      val mongoEmailDao = MongoEmailDAO.findOneById("String")
-      
+    })
+    	val mongoEmail	=	new MongoEmail(null, null, null, null, null, null, null, null, null, null, null, null)
+      //val mongoEmailDao =	new com.loyal3.model.email.MongoEmailDAO
       //new com.loyal3.model.email.MongoEmailDAO$.MongoEmailDAO
+      //val mongoEmailDAOInsert = MongoEmailDAO.insert(mongoEmail)
       socketLabsApiCall.setCount(Some(api_count))
       updateAttributes(socketLabsApiCall);
-    })
 
   }
-
+/*
+ *not enough arguments for constructor MongoEmail: (user_id: String, to_address: String, from_address: String, subject: String, html_body: String, send_at: java.util.Date, text_body: 
+ String, cc: String, owner_type: String, owner_id: String, bounced_emails: List[String], socket_labs_id: String)com.loyal3.model.email.MongoEmail. Unspecified value parameters 
+ user_id, to_address, from_address, ... 
+ */
   def recordDeliveryFailure(socketLabsApiCall:SocketLabsApiCall, validItemsList:ListBuffer[scala.xml.NodeSeq], api_count: Int)={
     validItemsList.iterator foreach(item=>{
       val bouncedEmail =	new BouncedEmail
@@ -192,7 +195,7 @@ class SocketLabsQueryService extends Object with Logging{
 
   }
 
-  private def extractApiCount(xml: scala.xml.Elem) = {
+   def extractApiCount(xml: scala.xml.Elem) = {
     val seq = for{
       resp_elem <- xml \\ "response"
       if(!resp_elem.isEmpty)
@@ -214,7 +217,7 @@ class SocketLabsQueryService extends Object with Logging{
   }
 
 
-  private def extractValidItems(itemSeq: Seq[scala.xml.NodeSeq]) = {
+  def extractValidItems(itemSeq: Seq[scala.xml.NodeSeq]) = {
     var validItems	=	new ListBuffer[NodeSeq]
     for(item<-itemSeq){
       val message_id = item \\ "MessageId"
@@ -228,7 +231,7 @@ class SocketLabsQueryService extends Object with Logging{
 
   def message_namespace= "de"
 
-  private def lastCallOf(method_name:String) = {
+  def lastCallOf(method_name:String) = {
     var socketLabsApiCall:SocketLabsApiCall	=	null
     try{
       val session = HibernateUtil.factory.openSession();
@@ -241,10 +244,11 @@ class SocketLabsQueryService extends Object with Logging{
       case ex:Exception => error("Failed to execute lastCallOf : "+ex.getMessage())
       ex.printStackTrace()
     }
+    println("in lastCallOf id="+socketLabsApiCall.getId()+"start_date="+socketLabsApiCall.getStartDate()+" end_date="+socketLabsApiCall.getEndDate()+" index="+socketLabsApiCall.getIndexVal())
     socketLabsApiCall
   }
 
-  private def calculateWindowArgs(socketLabsApiCall:SocketLabsApiCall):Map[String, String] ={
+  def calculateWindowArgs(socketLabsApiCall:SocketLabsApiCall):Map[String, String] ={
     var start_date=""
     var end_date=""
     var index	=""
@@ -255,18 +259,13 @@ class SocketLabsQueryService extends Object with Logging{
         windowArgsMap+=("startDate"->SocketLabsQueryService.defaultDate(),
           "endDate"->SocketLabsQueryService.today(),
           "index"->"0")
-      else if(socketLabsApiCall.getHttpStatus()==null || socketLabsApiCall.getCount()==null)//previous call not fully processed
+      else if(socketLabsApiCall.getHttpStatus()==null || socketLabsApiCall.getCount()==null){//previous call not fully processed
+        println("in else if socketLabsApiCall.getHttpStatus()==null....")
         windowArgsMap+=("startDate"->socketLabsApiCall.getStartDate().toString(),
           "endDate"->SocketLabsQueryService.today().toString(),
           "index"->socketLabsApiCall.getIndexVal().get.toString())
-      else{
-        if(!socketLabsApiCall.getStartDate().toString().isEmpty()){
-          debug("default date : "+SocketLabsQueryService.defaultDate().toString())
-          println("default date : "+SocketLabsQueryService.defaultDate().toString())
-          start_date	=	SocketLabsQueryService.defaultDate().toString()
-        }
-        else
-          start_date	=	socketLabsApiCall.getStartDate().toString()
+      }else{
+           start_date	=	socketLabsApiCall.getStartDate().toString()
 
         if((!socketLabsApiCall.getStartDate().toString().isEmpty()) &&
           (socketLabsApiCall.getEndDate().getTime()-socketLabsApiCall.getStartDate().getTime())>0 &&
@@ -276,13 +275,14 @@ class SocketLabsQueryService extends Object with Logging{
         }else
           index	=	(socketLabsApiCall.getIndexVal().get + socketLabsApiCall.getCount().get).toString()
         windowArgsMap+=("startDate"->start_date,
-          "endDate"->end_date,
+          "endDate"->SocketLabsQueryService.today().toString(),
           "index"->index)
       }
     }catch{
       case ex:Exception => error("Failed to calculate_window_params: "+ex.getMessage())
       ex.printStackTrace()
     }
+    println("windowArgsMap = "+windowArgsMap)
     windowArgsMap
   }
 
@@ -311,19 +311,20 @@ object SocketLabsQueryService{
   }
 
   def main(args: Array[String]): Unit = {
-    val queryParams	= Map("startDate"->"2011-02-18",
-      "endDate"->"201",
+    val queryParams	= Map("startDate"->"2012-11-18",
+      "endDate"->"2012-11-30",
       "index"->"0")
     val restClient	=	new SocketLabsQueryService
     restClient.runMessagesFailed()
-    var socketLabsApiCall = new SocketLabsApiCall
+    /*var socketLabsApiCall = new SocketLabsApiCall
     val id	=	com.loyal3.util.IdFactory.generateId
     println(id)
     socketLabsApiCall.setId(id)
     socketLabsApiCall.setStartDate(java.sql.Date.valueOf("2011-02-18"))
     socketLabsApiCall.setEndDate(java.sql.Date.valueOf("2011-12-18"))
     socketLabsApiCall.setIndexVal(Some(0))
-    socketLabsApiCall.setMethodName("messagesFailed")
+    socketLabsApiCall.setMethodName("messagesFailed")*/
+    //restClient.runMessagesFailed()
     //restClient.create_api_call("messagesFailed",queryParams)
   }
 }
