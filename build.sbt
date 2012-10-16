@@ -1,5 +1,7 @@
 name := "SocketLabsQueryService"
 
+resolvers += "TypeSafe MongoDB Casbah" at "http://repo.typesafe.com/typesafe/repo"
+
 libraryDependencies += 
   "net.databinder" %% "dispatch-http" % "0.8.8"
 
@@ -11,7 +13,7 @@ libraryDependencies +=
 
 //MySQL Connector 5.1.21
 libraryDependencies += 
-  "mysql" % "mysql-connector-java" % "5.1.21"
+  "mysql" % "mysql-connector-java" % "5.1.17"
 
 libraryDependencies += 
   "joda-time" % "joda-time" % "1.6.2"
@@ -21,10 +23,7 @@ libraryDependencies +=
 
 libraryDependencies += 
   "org.scalatest" % "scalatest_2.9.1" % "1.8"
-            
-libraryDependencies += 
-  "com.novus" % "salat-core_2.9.1" % "1.9.1"
-            
+                        
 libraryDependencies += 
   "net.liftweb" % "lift-webkit_2.9.1" % "2.4"
 
@@ -37,4 +36,8 @@ libraryDependencies ++= Seq(
    "commons-pool" % "commons-pool" % "1.6",
    "redis.clients" % "jedis" % "2.0.0")
 
- 
+libraryDependencies ++= Seq(
+   "com.novus" % "salat_2.9.1" % "0.0.8")
+
+libraryDependencies += 
+   "com.mongodb.casbah" % "casbah_2.9.1" % "2.1.5-1"
