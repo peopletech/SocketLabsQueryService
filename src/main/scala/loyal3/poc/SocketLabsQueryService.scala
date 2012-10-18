@@ -9,6 +9,7 @@ import scala.xml.NodeSeq
 import scala.xml.XML
 import org.joda.time.DateTime
 import com.loyal3.model.email.BouncedEmail
+import com.loyal3.model.email.MongoEmail
 import com.loyal3.model.email.SocketLabsApiCall
 import com.loyal3.util.logging.Logging
 import dispatch.Request.toHandlerVerbs
@@ -17,8 +18,11 @@ import dispatch.Http
 import dispatch.StatusCode
 import dispatch.url
 import loyal3.poc.utils.HibernateUtil
-import com.loyal3.model.email.MongoEmail
+import com.loyal3.util.IdFactory
+import com.loyal3.util.TimeSource
 import com.loyal3.model.email.MongoEmailDAO
+import com.mongodb.WriteConcern
+
 
 
 
@@ -148,7 +152,7 @@ class SocketLabsQueryService extends Object with Logging{
   }
 
   def recordFeedback(socketLabsApiCall:SocketLabsApiCall, validItemsList:ListBuffer[scala.xml.NodeSeq], api_count: Int)={
-    validItemsList.iterator foreach(item=>{
+    /*validItemsList.iterator foreach(item=>{
       val bouncedEmail =	new BouncedEmail
       val fromAddr	=	item \\ "FromAddress"
       bouncedEmail.setFromAddress(fromAddr.text)
@@ -161,20 +165,20 @@ class SocketLabsQueryService extends Object with Logging{
       val messageId	=	item \\ "MessageId"
       bouncedEmail.setId(messageId.text)
       
-    })
-    	val mongoEmail	=	new MongoEmail(null, null, null, null, null, null, null, null, null, null, null, null)
-      //val mongoEmailDao =	new com.loyal3.model.email.MongoEmailDAO
+    })*/
+      val userId = IdFactory.generateId()
+      val date = TimeSource.newDateTime.toDate
+      val email = new MongoEmail(user_id = userId, to_address = "toAddress", from_address = "fromAddress", subject = "subject", html_body = "htmlBody", send_at = date)
+      val mongoId = MongoEmailDAO.insert(email, WriteConcern.NORMAL)
+  	  println("mongoId="+mongoId) 
+     
       //new com.loyal3.model.email.MongoEmailDAO$.MongoEmailDAO
       //val mongoEmailDAOInsert = MongoEmailDAO.insert(mongoEmail)
       socketLabsApiCall.setCount(Some(api_count))
       updateAttributes(socketLabsApiCall);
 
   }
-/*
- *not enough arguments for constructor MongoEmail: (user_id: String, to_address: String, from_address: String, subject: String, html_body: String, send_at: java.util.Date, text_body: 
- String, cc: String, owner_type: String, owner_id: String, bounced_emails: List[String], socket_labs_id: String)com.loyal3.model.email.MongoEmail. Unspecified value parameters 
- user_id, to_address, from_address, ... 
- */
+
   def recordDeliveryFailure(socketLabsApiCall:SocketLabsApiCall, validItemsList:ListBuffer[scala.xml.NodeSeq], api_count: Int)={
     validItemsList.iterator foreach(item=>{
       val bouncedEmail =	new BouncedEmail
@@ -189,6 +193,12 @@ class SocketLabsQueryService extends Object with Logging{
       val messageId	=	item \\ "MessageId"
       bouncedEmail.setId(messageId.text)
       //val mongoEmailDao =	new MongoEmailDAO
+      val userId = IdFactory.generateId()
+      val date = TimeSource.newDateTime.toDate
+      val email = new MongoEmail(user_id = userId, to_address = "toAddress", from_address = "fromAddress", subject = "subject", html_body = "htmlBody", send_at = date)
+      val mongoId = MongoEmailDAO.insert(email, WriteConcern.NORMAL)
+  	  println("mongoId="+mongoId)
+  	  
       socketLabsApiCall.setCount(Some(api_count))
       updateAttributes(socketLabsApiCall);
     })
@@ -259,7 +269,7 @@ class SocketLabsQueryService extends Object with Logging{
         windowArgsMap+=("startDate"->SocketLabsQueryService.defaultDate(),
           "endDate"->SocketLabsQueryService.today(),
           "index"->"0")
-      else if(socketLabsApiCall.getHttpStatus()==null || socketLabsApiCall.getCount()==null){//previous call not fully processed
+      else if(socketLabsApiCall.getHttpStatus()==null || socketLabsApiCall.getCount()==None){//previous call not fully processed
         println("in else if socketLabsApiCall.getHttpStatus()==null....")
         windowArgsMap+=("startDate"->socketLabsApiCall.getStartDate().toString(),
           "endDate"->SocketLabsQueryService.today().toString(),
