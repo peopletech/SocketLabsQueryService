@@ -9,6 +9,8 @@ import org.scalatest.junit.JUnitRunner
 import com.loyal3.model.email.SocketLabsApiCall
 import loyal3.poc.utils.HibernateUtil
 import scala.xml.XML
+import com.loyal3.model.email.MongoEmailDAO
+import com.mongodb.casbah.commons.MongoDBObject
 
 @RunWith(classOf[JUnitRunner])
 class RESTClientTest extends FunSuite {
@@ -212,6 +214,85 @@ class RESTClientTest extends FunSuite {
 	  assert(java.sql.Date.valueOf(windowArgsMap.get("startDate").get)==socketLabsApiCall.getEndDate())
 	  assert(java.sql.Date.valueOf(windowArgsMap.get("endDate").get)==java.sql.Date.valueOf(SocketLabsQueryService.today()))
 	  assert(500==windowArgsMap.get("index").get.toInt)
+	}
+	
+	test("calculate window params.previous call had same start and end date, in the past and previous call had non-zero index and 0 count"){
+	  Thread.sleep(1000)
+	   var socketLabsApiCall:SocketLabsApiCall	=	null;
+	  val socketLabsQueryService=	new SocketLabsQueryService
+	  val method:String	=	"messagesFailed"
+	  val queryParams	= Map("startDate"->SocketLabsQueryService.defaultDate(),
+	      "endDate"->SocketLabsQueryService.defaultDate(),
+	      "index"->"10")
+	  socketLabsApiCall	=	socketLabsQueryService.createApiCall(method, queryParams)
+	  socketLabsApiCall	=	socketLabsQueryService.lastCallOf(method)
+	  val windowArgsMap	=	socketLabsQueryService.calculateWindowArgs(socketLabsApiCall)
+	  assert(3==windowArgsMap.size)
+	  assert(java.sql.Date.valueOf(windowArgsMap.get("startDate").get)==socketLabsApiCall.getStartDate())
+	  assert(java.sql.Date.valueOf(windowArgsMap.get("endDate").get)==java.sql.Date.valueOf(SocketLabsQueryService.today()))
+	  assert(10==windowArgsMap.get("index").get.toInt)
+	}
+	
+	test("calculate window params.previous call had same start and end date, in the past and previous call had non-zero index and non-zero count"){
+	  Thread.sleep(1000)
+	  var socketLabsApiCall:SocketLabsApiCall	=	null;
+	  val socketLabsQueryService=	new SocketLabsQueryService
+	  val method:String	=	"messagesFailed"
+	  val queryParams	= Map("startDate"->SocketLabsQueryService.defaultDate(),
+	      "endDate"->SocketLabsQueryService.defaultDate(),
+	      "index"->"10")
+	  socketLabsApiCall	=	socketLabsQueryService.createApiCall(method, queryParams)
+	  socketLabsApiCall.setCount(Some(10))
+	  socketLabsApiCall.setHttpStatus("200")
+	  socketLabsQueryService.updateAttributes(socketLabsApiCall)
+	  socketLabsApiCall	=	socketLabsQueryService.lastCallOf(method)
+	  val windowArgsMap	=	socketLabsQueryService.calculateWindowArgs(socketLabsApiCall)
+	  assert(3==windowArgsMap.size)
+	  assert(java.sql.Date.valueOf(windowArgsMap.get("startDate").get)==socketLabsApiCall.getStartDate())
+	  assert(java.sql.Date.valueOf(windowArgsMap.get("endDate").get)==java.sql.Date.valueOf(SocketLabsQueryService.today()))
+	  assert(20==windowArgsMap.get("index").get.toInt)
+	}
+	
+	test("calculate window params.previous call had same start and end date, in the past and previous call had non-zero index and max count"){
+	  Thread.sleep(1000)
+	  var socketLabsApiCall:SocketLabsApiCall	=	null;
+	  val socketLabsQueryService=	new SocketLabsQueryService
+	  val method:String	=	"messagesFailed"
+	  val queryParams	= Map("startDate"->SocketLabsQueryService.defaultDate(),
+	      "endDate"->SocketLabsQueryService.defaultDate(),
+	      "index"->"10")
+	  socketLabsApiCall	=	socketLabsQueryService.createApiCall(method, queryParams)
+	  socketLabsApiCall.setCount(Some(500))
+	  socketLabsApiCall.setHttpStatus("200")
+	  socketLabsQueryService.updateAttributes(socketLabsApiCall)
+	  socketLabsApiCall	=	socketLabsQueryService.lastCallOf(method)
+	  val windowArgsMap	=	socketLabsQueryService.calculateWindowArgs(socketLabsApiCall)
+	  assert(3==windowArgsMap.size)
+	  assert(java.sql.Date.valueOf(windowArgsMap.get("startDate").get)==socketLabsApiCall.getStartDate())
+	  assert(java.sql.Date.valueOf(windowArgsMap.get("endDate").get)==java.sql.Date.valueOf(SocketLabsQueryService.today()))
+	  assert(510==windowArgsMap.get("index").get.toInt)
+	}
+	
+	val raw_response="<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"yes\"?><response><timestamp>2010-02-02T01:34:42.1481507Z</timestamp><count>2</count><collection><item><AccountId>1143</AccountId><DateTime>2010-02-01T03:16:43Z</DateTime><MessageId>de6q3s6a5727125u152f2x5r1f345b051g</MessageId><MailingId></MailingId><ToAddress>bob_bounce1@example.com</ToAddress><FromAddress>admin@loyal3.com</FromAddress><FailureType>0</FailureType></item><item><AccountId>1143</AccountId><DateTime>2010-02-01T03:16:46Z</DateTime><MessageId>de6q3s6a8407125u920f2x5r1f345b051g</MessageId><MailingId></MailingId><ToAddress>junk_junk_junk@loyal3.com</ToAddress><FromAddress>admin2@loyal3.com</FromAddress><FailureType>1</FailureType></item></collection></response>"
+	test("should add bounced_email records"){
+	  Thread.sleep(1000)
+	  var socketLabsApiCall:SocketLabsApiCall	=	null;
+	  val socketLabsQueryService=	new SocketLabsQueryService
+	  val method:String	=	"messagesFailed"
+	  val queryParams	= Map("startDate"->SocketLabsQueryService.defaultDate(),
+	      "endDate"->SocketLabsQueryService.defaultDate(),
+	      "index"->"0")
+	  socketLabsApiCall	=	socketLabsQueryService.createApiCall(method, queryParams)
+	  socketLabsApiCall.setRawResponse(raw_response)
+	  socketLabsApiCall.setHttpStatus("200")
+	  val mongoEmailList	=	socketLabsQueryService.processApiResponse(socketLabsApiCall)
+	  assert(mongoEmailList.size>0)
+	  for(i<- 0 to mongoEmailList.size-1){
+	    val mongoEmail	=	MongoEmailDAO.findOne(MongoDBObject("user_id" -> mongoEmailList(i).user_id)).get
+	    assert(null!=mongoEmailList)
+	    assert(mongoEmail.user_id==mongoEmailList(i).user_id)
+	  }
+	  
 	  
 	}
 	
