@@ -3,7 +3,7 @@ name := "SocketLabsQueryService"
 resolvers += "TypeSafe MongoDB Casbah" at "http://repo.typesafe.com/typesafe/repo"
 
 libraryDependencies += 
-  "net.databinder" %% "dispatch-http" % "0.8.8"
+  "net.databinder" % "dispatch-http_2.9.1" % "0.8.8"
 
 libraryDependencies += 
   "org.hibernate" % "hibernate-entitymanager" % "3.6.7.Final"
@@ -41,3 +41,11 @@ libraryDependencies ++= Seq(
 
 libraryDependencies += 
    "com.mongodb.casbah" % "casbah_2.9.1" % "2.1.5-1"
+
+libraryDependencies ++= Seq(
+    "junit" % "junit" % "4.8.2",
+    "org.scala-tools.testing" % "test-interface" % "0.5",
+    "org.scalatest" %% "scalatest" % "1.6.1")
+
+libraryDependencies += 
+    "asm" % "asm-all" % "3.1"

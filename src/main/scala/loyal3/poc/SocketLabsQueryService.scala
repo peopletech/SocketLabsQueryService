@@ -26,7 +26,7 @@ import com.mongodb.WriteConcern
 
 
 
-class SocketLabsQueryService extends Object with Logging{
+class SocketLabsQueryService extends Object with Logging {
 
   def runMessagesFailed():Unit={
     val socketLabsApiCall:SocketLabsApiCall	=	getMessagesData("messagesFailed")
@@ -142,7 +142,6 @@ class SocketLabsQueryService extends Object with Logging{
 	    println("api_count = "+api_count)
 	    if (api_count>0)  {
 	      val seq: Seq[scala.xml.NodeSeq]	=	extractItemsArray(responseXml)
-	      //println(seq)
 	      val validItemsList:ListBuffer[scala.xml.NodeSeq]=extractValidItems(seq)
 	      if (socketLabsApiCall.getMethodName()=="messagesFailed")
 	    	  mongoEmailList	=	recordDeliveryFailure(socketLabsApiCall, validItemsList, api_count)
@@ -153,35 +152,42 @@ class SocketLabsQueryService extends Object with Logging{
   	}
     mongoEmailList
   }
-
-  def recordFeedback(socketLabsApiCall:SocketLabsApiCall, validItemsList:ListBuffer[scala.xml.NodeSeq], api_count: Int)={
+  
+  /** 
+   * Persists successful email deliveries to MongoDB.
+   * 
+   * @param socketLabsApiCall
+   * @param validItemsList
+   * @param api_count
+   * @return
+   * 
+   */
+def recordFeedback(socketLabsApiCall:SocketLabsApiCall, validItemsList:ListBuffer[scala.xml.NodeSeq], api_count: Int)={
     val mongoEmailList = new Array[MongoEmail](validItemsList.size)
     var i = 0
-    var isError	=	false
-	  validItemsList.iterator foreach(item=>{
-      //val bouncedEmail =	new BouncedEmail
-      val fromAddr	=	item \\ "FromAddress"
-      //bouncedEmail.setFromAddress(fromAddr.text)
-      val toAddr	=	item \\ "ToAddress"
-      //bouncedEmail.setToAddress(toAddr.text)
-      val dateTime	=	item \\ "DateTime"
-      //bouncedEmail.setBouncedAt(new DateTime(dateTime.text))
-      val failureType	=	item \\ "FailureType"
-      //bouncedEmail.setFailureType(failureType.text)
-      val messageId	=	item \\ "MessageId"
-      //bouncedEmail.setId(messageId.text)
-      val userId = IdFactory.generateId()
-       val date = TimeSource.stringToTimeSource(dateTime.text).toDate()
-      // email = new MongoEmail(user_id = userId, to_address = "toAddress", from_address = "fromAddress", subject = "subject", html_body = "htmlBody", send_at = date, text_body= "textBody", cc = "cc", owner_type = "owner_type", owner_id = "owner_id", bounced_emails = List(""), socket_labs_id="")
-      val email = MongoEmail(user_id = userId, to_address = toAddr.text, from_address = fromAddr.text, subject = "", html_body = "", send_at = date)
-      try{
-        val mongoId = MongoEmailDAO.insert(email, WriteConcern.NORMAL)
-        println("mongoId="+mongoId)
-        mongoEmailList(i)=email
+    var isError	= false
+	
+      validItemsList.iterator foreach(item=>{
+        val userId = IdFactory.generateId()  
+        val toAddr = (item \\ "ToAddress").text
+        val fromAddr = (item \\ "FromAddress").text
+        val date = TimeSource.stringToTimeSource((item \\ "DateTime").text).toDate()
+        val failureType = (item \\ "FailureType").text
+        val messageId	= (item \\ "MessageId").text
+      
+        val email = MongoEmail(user_id = userId, 
+                               to_address = toAddr, 
+                               from_address = fromAddr, 
+                               subject = "NULL", 
+                               html_body = "</html>", 
+                               send_at = date)
+        try{
+          val mongoId = MongoEmailDAO.insert(email, WriteConcern.NORMAL)
+          mongoEmailList(i)=email
     	  i += 1;
       }catch{
-        case ex:Exception => error("Failed to record feedback "+ex.getMessage())
-        isError=true
+        case ex:Exception => error("Failed to record feedback " + ex.getMessage())
+        isError = true
         ex.printStackTrace()
       }
     })
@@ -189,53 +195,54 @@ class SocketLabsQueryService extends Object with Logging{
 	      socketLabsApiCall.setCount(Some(api_count))
 	      updateAttributes(socketLabsApiCall);
       }
+    
 	  mongoEmailList
   }
-/*
- * not enough arguments for constructor MongoEmail: (user_id: String, to_address: String, from_address: String, subject: String, html_body: String, send_at: 
-	 java.util.Date, text_body: String, cc: String, owner_type: String, owner_id: String, bounced_emails: List[String], socket_labs_id: String)com.loyal3.model.email.MongoEmail
+/** 
+ * Persists email delivery failures to MongoDB.
+ *
+ * @param socketLabsApiCall
+ * @param validItemsList
+ * @param api_count
+ * @return
+ *
  */
-  def recordDeliveryFailure(socketLabsApiCall:SocketLabsApiCall, validItemsList:ListBuffer[scala.xml.NodeSeq], api_count: Int)={
+def recordDeliveryFailure(socketLabsApiCall:SocketLabsApiCall, validItemsList:ListBuffer[scala.xml.NodeSeq], api_count: Int)={
     val mongoEmailList = new Array[MongoEmail](validItemsList.size)
     var i:Int = 0
-    var isError	=	false
-    validItemsList.iterator foreach(item=>{
+    var isError	= false
+    
+    validItemsList.iterator foreach( item=>{
+      val userId = IdFactory.generateId()  
+      val toAddr = (item \\ "ToAddress").text
+      val fromAddr = (item \\ "FromAddress").text
+      val date = TimeSource.stringToTimeSource((item \\ "DateTime").text).toDate()
+      val failureType = (item \\ "FailureType").text
+      val messageId	= (item \\ "MessageId").text
       
-      //val bouncedEmail =	new BouncedEmail
-      val fromAddr	=	item \\ "FromAddress"
-      //bouncedEmail.setFromAddress(fromAddr.text)
-      val toAddr	=	item \\ "ToAddress"
-      //bouncedEmail.setToAddress(toAddr.text)
-      val dateTime	=	item \\ "DateTime"
-      //bouncedEmail.setBouncedAt(new DateTime(dateTime.text))
-      val failureType	=	item \\ "FailureType"
-      //bouncedEmail.setFailureType(failureType.text)
-      val messageId	=	item \\ "MessageId"
-      //bouncedEmail.setId(messageId.text)
-      val userId = IdFactory.generateId()
-      //val date = TimeSource.newDateTime.toDate
-      val date = TimeSource.stringToTimeSource(dateTime.text).toDate()
-      //val email = new MongoEmail(user_id = userId, to_address = "ToAddress", from_address = "FromAddress", subject = "subject", html_body = "htmlBody", send_at = date, text_body= "textBody", cc = "cc", owner_type = "owner_type", owner_id = "owner_id", bounced_emails = List(""), socket_labs_id="")
-      val email = MongoEmail(user_id = userId, to_address = toAddr.text, from_address = fromAddr.text, subject = "NULL", html_body = "NULL", send_at = date)
+      val email = MongoEmail(user_id = userId, 
+                             to_address = toAddr, 
+                             from_address = fromAddr, 
+                             subject = "NULL", 
+                             html_body = "<html/>", 
+                             send_at = date)
       
       try{
     	  val mongoId = MongoEmailDAO.insert(email, WriteConcern.NORMAL)
     	  mongoEmailList(i)=email
     	  i += 1;
-    	  println("mongoId="+mongoId)
       }catch{
-        case ex:Exception => error("Failed to record DeliveryFailure "+ex.getMessage())
+        case ex:Exception => error("Failed to record DeliveryFailure " + ex.getMessage())
         isError = true
         ex.printStackTrace()
-      }
-  	  
+      }  	  
     })
-    //val mongoEmailDao =	new MongoEmailDAO
+    
     if(!isError){
       socketLabsApiCall.setCount(Some(api_count))
       updateAttributes(socketLabsApiCall); 
     }
-    println("mongoEmailList size = "+mongoEmailList.size)
+    
     mongoEmailList
   }
 
