@@ -13,7 +13,7 @@ import com.loyal3.model.email.MongoEmailDAO
 import com.mongodb.casbah.commons.MongoDBObject
 
 @RunWith(classOf[JUnitRunner])
-class RESTClientTest extends FunSuite {
+class SocketLabsQueryServiceTestSuite extends FunSuite {
 	test("should construct the expected REST request") {
 	  val socketLabsQueryService=	new SocketLabsQueryService
 	  val method:String	=	"messagesFailed"
@@ -52,7 +52,7 @@ class RESTClientTest extends FunSuite {
 	  	assert(None==socketLabsApiCall.getCount())
 	}
 	
-	test("should update the SocketLabsApiCall object to the database during an time out response. raw_response=null,http_status=null and count==0"){
+	test("should update the SocketLabsApiCall object to the database during a time out response. raw_response=null,http_status=null and count==0"){
 		var socketLabsApiCall:SocketLabsApiCall	=	null;
 	  val socketLabsQueryService=	new SocketLabsQueryService
 	  val method:String	=	"messagesFailed"
@@ -286,10 +286,10 @@ class RESTClientTest extends FunSuite {
 	  socketLabsApiCall.setRawResponse(raw_response)
 	  socketLabsApiCall.setHttpStatus("200")
 	  val mongoEmailList	=	socketLabsQueryService.processApiResponse(socketLabsApiCall)
-	  assert(mongoEmailList.size>0)
+	  assert(null!=mongoEmailList)
+	  assert(mongoEmailList.size==2)
 	  for(i<- 0 to mongoEmailList.size-1){
 	    val mongoEmail	=	MongoEmailDAO.findOne(MongoDBObject("user_id" -> mongoEmailList(i).user_id)).get
-	    assert(null!=mongoEmailList)
 	    assert(mongoEmail.user_id==mongoEmailList(i).user_id)
 	  }
 	  
