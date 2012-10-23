@@ -49,3 +49,7 @@ libraryDependencies ++= Seq(
 
 libraryDependencies += 
     "asm" % "asm-all" % "3.1"
+
+libraryDependencies ++= Seq(
+  "org.springframework" % "spring-core" % "3.0.6.RELEASE"
+)
