@@ -48,7 +48,7 @@ public class HibernateUtil
 		Configuration config = new Configuration();
 
 		// Add the Loyal3 hibernate classes
-		List classes = JavaConverters.seqAsJavaListConverter( Schema1.resourceFiles() ).asJava();
+		List classes = JavaConverters.seqAsJavaListConverter( Schema.resourceFiles() ).asJava();
 		List<Class> modelClasses = (List<Class>) classes;
 		for (Class cls : modelClasses) {
 			config.addAnnotatedClass(cls);

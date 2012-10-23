@@ -27,6 +27,7 @@ import org.hibernate.criterion.DetachedCriteria
 import org.hibernate.HibernateException
 import com.mongodb.casbah.commons.MongoDBObject
 import com.mongodb.MongoException
+import org.hibernate.classic.Session
 
 /**
  * An asynchronous query service for returning Bounced and Feedback Loop emails 
@@ -109,9 +110,9 @@ def createApiCall(methodName: String, windowParams: Map[String, String]) = {
     socketLabsApiCall.setIndexVal(Some(windowParams.get("index").get.toLong))
     socketLabsApiCall.setMethodName(methodName)
     socketLabsApiCall.createdAt = new DateTime()
-      
+    var session:Session = null  
     try {
-      val session = HibernateUtil.factory.openSession();
+      session = HibernateUtil.factory.openSession();
       val tx = session.beginTransaction();
       //session.setFlushMode(FlushMode.AUTO)
       session.save(socketLabsApiCall);
@@ -120,6 +121,8 @@ def createApiCall(methodName: String, windowParams: Map[String, String]) = {
       session.close();
     } catch {
       case he: HibernateException =>
+        if(null!=session)
+        	session.close();
         error("Hibernate Exception : " + he.getMessage())
         he.printStackTrace()
       case ex: Exception =>
@@ -139,9 +142,10 @@ def createApiCall(methodName: String, windowParams: Map[String, String]) = {
    */
 def updateAttributes(socketLabsApiCall: SocketLabsApiCall) = {
   socketLabsApiCall.updatedAt = new DateTime()      
+  var session:Session = null
   try {
       //println("update id = " + socketLabsApiCall.getId())
-      val session = HibernateUtil.factory.openSession();
+      session = HibernateUtil.factory.openSession();
       val tx = session.beginTransaction();
       //session.setFlushMode(FlushMode.AUTO)
       session.saveOrUpdate(socketLabsApiCall);
@@ -150,6 +154,8 @@ def updateAttributes(socketLabsApiCall: SocketLabsApiCall) = {
       session.close();
     } catch {
       case he: HibernateException =>
+        if(null!=session)
+          session.close()
         error("Hibernate failed during updateAttributes : " + he.getMessage())
         he.printStackTrace();
       case ex: Exception =>
@@ -344,8 +350,9 @@ def updateAttributes(socketLabsApiCall: SocketLabsApiCall) = {
    */
   def lastCallOf(method_name: String) = {
     var socketLabsApiCall: SocketLabsApiCall = null
+    var session:Session = null
     try {
-      val session = HibernateUtil.factory.openSession();
+      session = HibernateUtil.factory.openSession();
 
       val lastCallDate = DetachedCriteria.forClass(classOf[SocketLabsApiCall])
         .setProjection(Projections.max("createdAt"))
@@ -356,10 +363,12 @@ def updateAttributes(socketLabsApiCall: SocketLabsApiCall) = {
         .uniqueResult()
         .asInstanceOf[SocketLabsApiCall]
 
-      session.flush();
-      session.close();
+      session.flush()
+      session.close()
     } catch {
       case he: HibernateException =>
+        if(session!=null)
+        	session.close()
         he.printStackTrace()
       case ex: Exception =>
         error("Failed to execute lastCallOf : " + ex.getMessage())
@@ -434,6 +443,7 @@ object SocketLabsQueryService {
     val cal = Calendar.getInstance
     new SimpleDateFormat(formatString) format cal.getTime
   }
+
 
   def main(args: Array[String]): Unit = {
     val queryParams = Map("startDate" -> "2012-11-18",
